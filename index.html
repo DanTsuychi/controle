@@ -132,36 +132,34 @@
         <input type="text" id="valor" placeholder="Valor de ajuda (Opcional - R\$)">
         <button onclick="salvarListagem()">Transmitir Dados</button>
 
-        <h3 style="margin-top: 40px;">Minhas Listagens</h3>
-        <div id="minhasListagens"></div>
-    </div>
+        <div id="minhasListagens" style="margin-top: 15px;"></div>
 
-    <!-- Painel de Administração -->
-    <div id="adminSection" class="container hidden" style="max-width: 800px;">
-        <h2>Painel de Controle - Nível Admin</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Convidado</th>
-                    <th>Item</th>
-                    <th>Qtd</th>
-                    <th>Serviços</th>
-                    <th>Ajuda (R\$)</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaAdmin"></tbody>
-        </table>
+        <!-- Botão para visualizar a lista geral -->
+        <button onclick="toggleListaGeral()" style="margin-top: 25px; border-color: var(--neon-red);">📋 Ver Lista Geral da Festa</button>
+
+        <!-- Seção expansível da Lista Geral -->
+        <div id="listaGeralSection" class="hidden" style="margin-top: 20px;">
+            <h3>Itens Cadastrados pelos Convidados</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Convidado</th>
+                        <th>Item</th>
+                        <th>Qtd</th>
+                        <th>Serviços</th>
+                        <th>Ajuda (R\$)</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaGeral"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        // CRENDENCIAIS DO SEU NOVO PROJETO SUPABASE
         const SUPABASE_URL = 'https://pugtfjrukcgytwiitcoh.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1Z3RmanJ1a2NneXR3aWl0Y29oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODU5NjIsImV4cCI6MjEwNzU2MTk2Mn0.Vf5gEsaAcMy4N6sB_a0-U6avbm8A53ic5-8xwcd-KvM';
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        // Emails dos administradores
-        const ADMIN_EMAILS = ['dantsuychi@admin.com', 'lyss@admin.com'];
 
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -169,15 +167,9 @@
                 document.getElementById('loginSection').classList.add('hidden');
                 document.getElementById('mainSection').classList.remove('hidden');
                 carregarMinhasListagens();
-                
-                if (ADMIN_EMAILS.includes(session.user.email)) {
-                    document.getElementById('adminSection').classList.remove('hidden');
-                    carregarTudoAdmin();
-                }
             } else {
                 document.getElementById('loginSection').classList.remove('hidden');
                 document.getElementById('mainSection').classList.add('hidden');
-                document.getElementById('adminSection').classList.add('hidden');
             }
         }
 
@@ -222,6 +214,7 @@
             else {
                 alert("Dados transmitidos com sucesso.");
                 carregarMinhasListagens();
+                carregarListaGeral();
             }
         }
 
@@ -236,15 +229,29 @@
                 document.getElementById('qtd').value = l.quantidade || '';
                 document.getElementById('servicos').value = l.servicos || '';
                 document.getElementById('valor').value = l.valor_ajuda || '';
-                document.getElementById('minhasListagens').innerHTML = `<p style="color:var(--neon-red)">Dados atuais carregados no formulário acima. Edite e salve novamente para atualizar.</p>`;
+                document.getElementById('minhasListagens').innerHTML = `<p style="color:var(--neon-red)">Seus dados atuais estão carregados acima. Edite e clique em "Transmitir Dados" para atualizar.</p>`;
             }
         }
 
-        async function carregarTudoAdmin() {
+        async function toggleListaGeral() {
+            const section = document.getElementById('listaGeralSection');
+            if (section.classList.contains('hidden')) {
+                await carregarListaGeral();
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+
+        async function carregarListaGeral() {
             const { data, error } = await supabaseClient.from('listagens').select('*');
             if (!error && data) {
-                const tbody = document.getElementById('tabelaAdmin');
+                const tbody = document.getElementById('tabelaGeral');
                 tbody.innerHTML = '';
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhum item registrado ainda.</td></tr>`;
+                    return;
+                }
                 data.forEach(row => {
                     tbody.innerHTML += `
                         <tr>
