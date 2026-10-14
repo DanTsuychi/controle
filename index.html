@@ -198,6 +198,7 @@
         const ADMIN_EMAILS = ['dantsuychi@admin.com', 'lyss@admin.com'];
         let currentUserEmail = '';
         let editingId = null;
+        let currentMinhasListagens = [];
 
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -320,12 +321,12 @@
             tbody.innerHTML = '';
 
             if (!error && data) {
+                currentMinhasListagens = data;
                 if (data.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Você ainda não registrou nenhum item.</td></tr>`;
                     return;
                 }
                 data.forEach(row => {
-                    const rowData = JSON.stringify(row).replace(/'/g, "&apos;");
                     tbody.innerHTML += `
                         <tr>
                             <td>${row.item || '-'}</td>
@@ -333,7 +334,7 @@
                             <td>${row.servicos || '-'}</td>
                             <td>${row.valor_ajuda || '-'}</td>
                             <td>
-                                <button class="btn-sm" onclick='prepararEdicao(${rowData})'>Editar</button>
+                                <button class="btn-sm" onclick="prepararEdicao('${row.id}')">Editar</button>
                                 <button class="btn-sm btn-danger" onclick="apagarItem('${row.id}')">Apagar</button>
                             </td>
                         </tr>
@@ -342,7 +343,10 @@
             }
         }
 
-        function prepararEdicao(itemData) {
+        function prepararEdicao(id) {
+            const itemData = currentMinhasListagens.find(item => item.id === id);
+            if (!itemData) return;
+
             editingId = itemData.id;
             document.getElementById('nome').value = itemData.nome || '';
             document.getElementById('sobrenome').value = itemData.sobrenome || '';
@@ -359,6 +363,7 @@
         }
 
         async function apagarItem(id) {
+            if (!id) return;
             if (confirm("Tem certeza que deseja apagar este item?")) {
                 const { error } = await supabaseClient.from('listagens').delete().eq('id', id);
                 if (error) {
@@ -407,6 +412,11 @@
                     return;
                 }
                 data.forEach(row => {
+                    let acoesTd = '';
+                    if (isAdmin) {
+                        acoesTd = `<td><button class="btn-sm btn-danger" onclick="apagarItem('${row.id}')">Apagar</button></td>`;
+                    }
+
                     tbody.innerHTML += `
                         <tr>
                             <td>${row.nome} ${row.sobrenome}</td>
@@ -414,7 +424,7 @@
                             <td>${row.quantidade || 0}</td>
                             <td>${row.servicos || '-'}</td>
                             <td>${row.valor_ajuda || '-'}</td>
-                            ${isAdmin ? `<td><button class="btn-sm btn-danger" onclick="apagarItem('\${row.id}')">Apagar</button></td>` : ''}
+                            ${acoesTd}
                         </tr>
                     `;
                 });
