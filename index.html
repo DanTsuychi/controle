@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeto D - Controle de Convidados</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-red: #ff003c;
+            --dark-bg: #050505;
+        }
+        body {
+            background-color: var(--dark-bg);
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-image: 
+                linear-gradient(rgba(255, 0, 60, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 0, 60, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid var(--neon-red);
+            box-shadow: 0 0 10px rgba(255, 0, 60, 0.3), inset 0 0 15px rgba(255, 0, 60, 0.1);
+            padding: 30px;
+            margin-top: 20px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .logo {
+            max-width: 250px;
+            display: block;
+            margin: 0 auto 30px auto;
+            filter: drop-shadow(0 0 10px var(--neon-red));
+        }
+        h1, h2, h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-red);
+            text-align: center;
+            text-transform: uppercase;
+            text-shadow: 0 0 5px var(--neon-red);
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            background: transparent;
+            border: 1px solid #333;
+            color: var(--neon-red);
+            font-family: 'Share Tech Mono', monospace;
+            box-sizing: border-box;
+            transition: 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--neon-red);
+            box-shadow: 0 0 8px var(--neon-red);
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            border: 2px solid var(--neon-red);
+            color: var(--neon-red);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background: var(--neon-red);
+            color: var(--dark-bg);
+            box-shadow: 0 0 15px var(--neon-red);
+        }
+        .hidden { display: none !important; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        th { color: var(--neon-red); }
+        .glitch {
+            animation: glitch 2s linear infinite;
+        }
+        @keyframes glitch {
+            2%, 64% { transform: translate(2px,0) skew(0deg); }
+            4%, 60% { transform: translate(-2px,0) skew(0deg); }
+            62% { transform: translate(0,0) skew(5deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <img src="logo.jpg" alt="Projeto D" class="logo glitch">
+
+    <!-- Tela de Login -->
+    <div id="loginSection" class="container">
+        <h2>Acesso Restrito</h2>
+        <input type="email" id="email" placeholder="E-mail / Login">
+        <input type="password" id="password" placeholder="Senha">
+        <button onclick="login()">Conectar-se ao Sistema</button>
+    </div>
+
+    <!-- Painel Principal do Usuário -->
+    <div id="mainSection" class="container hidden">
+        <button onclick="logout()" style="margin-bottom:20px; border-color:#555; color:#aaa;">Desconectar</button>
+        
+        <h2>Registro de Entrada</h2>
+        <input type="text" id="nome" placeholder="Nome">
+        <input type="text" id="sobrenome" placeholder="Sobrenome">
+        <input type="text" id="item" placeholder="Item a levar (ex: Vodka, Gelo)">
+        <input type="number" id="qtd" placeholder="Quantidade">
+        <input type="text" id="servicos" placeholder="Serviços oferecidos (Opcional)">
+        <input type="text" id="valor" placeholder="Valor de ajuda (Opcional - R\$)">
+        <button onclick="salvarListagem()">Transmitir Dados</button>
+
+        <h3 style="margin-top: 40px;">Minhas Listagens</h3>
+        <div id="minhasListagens"></div>
+    </div>
+
+    <!-- Painel de Administração -->
+    <div id="adminSection" class="container hidden" style="max-width: 800px;">
+        <h2>Painel de Controle - Nível Admin</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Convidado</th>
+                    <th>Item</th>
+                    <th>Qtd</th>
+                    <th>Serviços</th>
+                    <th>Ajuda (R\$)</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaAdmin"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // COLOQUE SUAS CREDENCIAIS DO SUPABASE AQUI
+        const SUPABASE_URL = 'SUA_URL_DO_SUPABASE';
+        const SUPABASE_KEY = 'SUA_ANON_KEY_DO_SUPABASE';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Emails dos administradores (Substitua pelos emails reais de vocês no banco)
+        const ADMIN_EMAILS = ['dantsuychi@email.com', 'lyss@email.com'];
+
+        async function checkSession() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('mainSection').classList.remove('hidden');
+                carregarMinhasListagens();
+                
+                if (ADMIN_EMAILS.includes(session.user.email)) {
+                    document.getElementById('adminSection').classList.remove('hidden');
+                    carregarTudoAdmin();
+                }
+            } else {
+                document.getElementById('loginSection').classList.remove('hidden');
+                document.getElementById('mainSection').classList.add('hidden');
+                document.getElementById('adminSection').classList.add('hidden');
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) alert("Falha na conexão: " + error.message);
+            else checkSession();
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            checkSession();
+        }
+
+        async function salvarListagem() {
+            const { data: { user } } = await supabase.auth.getUser();
+            const payload = {
+                user_id: user.id,
+                nome: document.getElementById('nome').value,
+                sobrenome: document.getElementById('sobrenome').value,
+                item: document.getElementById('item').value,
+                quantidade: parseInt(document.getElementById('qtd').value) || 0,
+                servicos: document.getElementById('servicos').value,
+                valor_ajuda: document.getElementById('valor').value
+            };
+
+            const { error } = await supabase.from('listagens').upsert([payload]);
+            if (error) alert("Erro ao salvar: " + error.message);
+            else {
+                alert("Dados transmitidos com sucesso.");
+                carregarMinhasListagens();
+            }
+        }
+
+        async function carregarMinhasListagens() {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data, error } = await supabase.from('listagens').select('*').eq('user_id', user.id);
+            if (!error && data.length > 0) {
+                const l = data[0]; // Assumindo uma listagem por pessoa para facilitar edição
+                document.getElementById('nome').value = l.nome || '';
+                document.getElementById('sobrenome').value = l.sobrenome || '';
+                document.getElementById('item').value = l.item || '';
+                document.getElementById('qtd').value = l.quantidade || '';
+                document.getElementById('servicos').value = l.servicos || '';
+                document.getElementById('valor').value = l.valor_ajuda || '';
+                document.getElementById('minhasListagens').innerHTML = `<p style="color:var(--neon-red)">Dados atuais carregados no formulário acima. Edite e salve novamente para atualizar.</p>`;
+            }
+        }
+
+        async function carregarTudoAdmin() {
+            const { data, error } = await supabase.from('listagens').select('*');
+            if (!error) {
+                const tbody = document.getElementById('tabelaAdmin');
+                tbody.innerHTML = '';
+                data.forEach(row => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${row.nome} ${row.sobrenome}</td>
+                            <td>${row.item || '-'}</td>
+                            <td>${row.quantidade || '-'}</td>
+                            <td>${row.servicos || '-'}</td>
+                            <td>${row.valor_ajuda || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        checkSession();
+    </script>
+</body>
+</html>
