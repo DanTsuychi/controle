@@ -83,6 +83,20 @@
             color: var(--dark-bg);
             box-shadow: 0 0 15px var(--neon-red);
         }
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.8em;
+            margin-bottom: 0;
+            width: auto;
+        }
+        .btn-danger {
+            border-color: #ff3333;
+            color: #ff3333;
+        }
+        .btn-danger:hover {
+            background: #ff3333;
+            color: #000;
+        }
         .hidden { display: none !important; }
         table {
             width: 100%;
@@ -123,23 +137,43 @@
     <div id="mainSection" class="container hidden">
         <button onclick="logout()" style="margin-bottom:20px; border-color:#555; color:#aaa;">Desconectar</button>
         
-        <h2>Registro de Entrada</h2>
+        <h2 id="formTitle">Cadastrar Item</h2>
         <input type="text" id="nome" placeholder="Nome">
         <input type="text" id="sobrenome" placeholder="Sobrenome">
         <input type="text" id="item" placeholder="Item a levar (ex: Vodka, Gelo)">
         <input type="number" id="qtd" placeholder="Quantidade">
         <input type="text" id="servicos" placeholder="Serviços oferecidos (Opcional)">
         <input type="text" id="valor" placeholder="Valor de ajuda (Opcional - R\$)">
-        <button onclick="salvarListagem()">Transmitir Dados</button>
+        
+        <button id="btnSalvar" onclick="salvarListagem()">Registrar</button>
+        <button id="btnCancelarEdicao" onclick="cancelarEdicao()" class="hidden btn-danger">Cancelar Edição</button>
 
-        <div id="minhasListagens" style="margin-top: 15px;"></div>
+        <!-- Botões de navegação das listas -->
+        <div style="margin-top: 25px;">
+            <button onclick="toggleMinhasListagens()" style="border-color: #00e5ff; color: #00e5ff;">📦 Minhas Listagens</button>
+            <button onclick="toggleListaGeral()" style="border-color: var(--neon-red);">📋 Ver Lista Geral da Festa</button>
+        </div>
 
-        <!-- Botão para visualizar a lista geral -->
-        <button onclick="toggleListaGeral()" style="margin-top: 25px; border-color: var(--neon-red);">📋 Ver Lista Geral da Festa</button>
+        <!-- Seção: Minhas Listagens -->
+        <div id="minhasListagensSection" class="hidden" style="margin-top: 20px;">
+            <h3 style="color: #00e5ff;">Seus Itens Registrados</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qtd</th>
+                        <th>Serviços</th>
+                        <th>Ajuda (R\$)</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaMinha"></tbody>
+            </table>
+        </div>
 
-        <!-- Seção expansível da Lista Geral -->
+        <!-- Seção: Lista Geral da Festa -->
         <div id="listaGeralSection" class="hidden" style="margin-top: 20px;">
-            <h3>Itens Cadastrados pelos Convidados</h3>
+            <h3>Todos os Itens da Festa</h3>
             <table>
                 <thead>
                     <tr>
@@ -161,12 +195,14 @@
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        let editingId = null; // Guarda o ID do item que está sendo editado
+
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 document.getElementById('loginSection').classList.add('hidden');
                 document.getElementById('mainSection').classList.remove('hidden');
-                carregarMinhasListagens();
+                carregarDadosUsuario();
             } else {
                 document.getElementById('loginSection').classList.remove('hidden');
                 document.getElementById('mainSection').classList.add('hidden');
@@ -197,39 +233,142 @@
             checkSession();
         }
 
+        // Preenche Nome e Sobrenome automaticamente se já cadastrou algo antes
+        async function carregarDadosUsuario() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            const { data } = await supabaseClient.from('listagens').select('*').eq('user_id', user.id).limit(1);
+            if (data && data.length > 0) {
+                document.getElementById('nome').value = data[0].nome || '';
+                document.getElementById('sobrenome').value = data[0].sobrenome || '';
+            }
+        }
+
         async function salvarListagem() {
             const { data: { user } } = await supabaseClient.auth.getUser();
-            const payload = {
-                user_id: user.id,
-                nome: document.getElementById('nome').value,
-                sobrenome: document.getElementById('sobrenome').value,
-                item: document.getElementById('item').value,
-                quantidade: parseInt(document.getElementById('qtd').value) || 0,
-                servicos: document.getElementById('servicos').value,
-                valor_ajuda: document.getElementById('valor').value
-            };
+            const nome = document.getElementById('nome').value;
+            const sobrenome = document.getElementById('sobrenome').value;
+            const item = document.getElementById('item').value;
+            const quantidade = parseInt(document.getElementById('qtd').value) || 0;
+            const servicos = document.getElementById('servicos').value;
+            const valor_ajuda = document.getElementById('valor').value;
 
-            const { error } = await supabaseClient.from('listagens').upsert([payload]);
-            if (error) alert("Erro ao salvar: " + error.message);
-            else {
-                alert("Dados transmitidos com sucesso.");
-                carregarMinhasListagens();
-                carregarListaGeral();
+            if (!nome || !sobrenome) {
+                alert("Por favor, informe seu Nome e Sobrenome.");
+                return;
+            }
+
+            const payload = { user_id: user.id, nome, sobrenome, item, quantidade, servicos, valor_ajuda };
+
+            let error = null;
+
+            if (editingId) {
+                // Atualiza o item existente
+                const res = await supabaseClient.from('listagens').update(payload).eq('id', editingId);
+                error = res.error;
+            } else {
+                // Insere um novo item
+                const res = await supabaseClient.from('listagens').insert([payload]);
+                error = res.error;
+            }
+
+            if (error) {
+                alert("Erro ao salvar: " + error.message);
+            } else {
+                alert(editingId ? "Item atualizado com sucesso!" : "Item registrado com sucesso!");
+                limparFormularioItem();
+                
+                // Atualiza as tabelas se estiverem abertas
+                if (!document.getElementById('minhasListagensSection').classList.contains('hidden')) {
+                    carregarMinhasListagens();
+                }
+                if (!document.getElementById('listaGeralSection').classList.contains('hidden')) {
+                    carregarListaGeral();
+                }
+            }
+        }
+
+        function limparFormularioItem() {
+            editingId = null;
+            document.getElementById('item').value = '';
+            document.getElementById('qtd').value = '';
+            document.getElementById('servicos').value = '';
+            document.getElementById('valor').value = '';
+            
+            document.getElementById('formTitle').innerText = "Cadastrar Item";
+            document.getElementById('btnSalvar').innerText = "Registrar";
+            document.getElementById('btnCancelarEdicao').classList.add('hidden');
+        }
+
+        function cancelarEdicao() {
+            limparFormularioItem();
+        }
+
+        async function toggleMinhasListagens() {
+            const section = document.getElementById('minhasListagensSection');
+            if (section.classList.contains('hidden')) {
+                await carregarMinhasListagens();
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
             }
         }
 
         async function carregarMinhasListagens() {
             const { data: { user } } = await supabaseClient.auth.getUser();
             const { data, error } = await supabaseClient.from('listagens').select('*').eq('user_id', user.id);
-            if (!error && data && data.length > 0) {
-                const l = data[0]; 
-                document.getElementById('nome').value = l.nome || '';
-                document.getElementById('sobrenome').value = l.sobrenome || '';
-                document.getElementById('item').value = l.item || '';
-                document.getElementById('qtd').value = l.quantidade || '';
-                document.getElementById('servicos').value = l.servicos || '';
-                document.getElementById('valor').value = l.valor_ajuda || '';
-                document.getElementById('minhasListagens').innerHTML = `<p style="color:var(--neon-red)">Seus dados atuais estão carregados acima. Edite e clique em "Transmitir Dados" para atualizar.</p>`;
+            const tbody = document.getElementById('tabelaMinha');
+            tbody.innerHTML = '';
+
+            if (!error && data) {
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Você ainda não registrou nenhum item.</td></tr>`;
+                    return;
+                }
+                data.forEach(row => {
+                    const rowData = JSON.stringify(row).replace(/'/g, "&apos;");
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${row.item || '-'}</td>
+                            <td>${row.quantidade || 0}</td>
+                            <td>${row.servicos || '-'}</td>
+                            <td>${row.valor_ajuda || '-'}</td>
+                            <td>
+                                <button class="btn-sm" onclick='prepararEdicao(${rowData})'>Editar</button>
+                                <button class="btn-sm btn-danger" onclick="apagarItem('${row.id}')">Apagar</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        function prepararEdicao(itemData) {
+            editingId = itemData.id;
+            document.getElementById('nome').value = itemData.nome || '';
+            document.getElementById('sobrenome').value = itemData.sobrenome || '';
+            document.getElementById('item').value = itemData.item || '';
+            document.getElementById('qtd').value = itemData.quantidade || '';
+            document.getElementById('servicos').value = itemData.servicos || '';
+            document.getElementById('valor').value = itemData.valor_ajuda || '';
+
+            document.getElementById('formTitle').innerText = "Editar Item";
+            document.getElementById('btnSalvar').innerText = "Salvar Alterações";
+            document.getElementById('btnCancelarEdicao').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function apagarItem(id) {
+            if (confirm("Tem certeza que deseja apagar este item?")) {
+                const { error } = await supabaseClient.from('listagens').delete().eq('id', id);
+                if (error) {
+                    alert("Erro ao apagar: " + error.message);
+                } else {
+                    carregarMinhasListagens();
+                    if (!document.getElementById('listaGeralSection').classList.contains('hidden')) {
+                        carregarListaGeral();
+                    }
+                }
             }
         }
 
@@ -245,9 +384,10 @@
 
         async function carregarListaGeral() {
             const { data, error } = await supabaseClient.from('listagens').select('*');
+            const tbody = document.getElementById('tabelaGeral');
+            tbody.innerHTML = '';
+
             if (!error && data) {
-                const tbody = document.getElementById('tabelaGeral');
-                tbody.innerHTML = '';
                 if (data.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhum item registrado ainda.</td></tr>`;
                     return;
@@ -257,7 +397,7 @@
                         <tr>
                             <td>${row.nome} ${row.sobrenome}</td>
                             <td>${row.item || '-'}</td>
-                            <td>${row.quantidade || '-'}</td>
+                            <td>${row.quantidade || 0}</td>
                             <td>${row.servicos || '-'}</td>
                             <td>${row.valor_ajuda || '-'}</td>
                         </tr>
