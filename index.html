@@ -155,13 +155,15 @@
         // COLOQUE SUAS CREDENCIAIS DO SUPABASE AQUI
         const SUPABASE_URL = 'https://wwuwrzzkiyjhgevgtdqv.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_C4QG_5X6G4wBzkvx8HGFTw_suWEnDYV';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // RESOLUÇÃO DO ERRO: Mudamos o nome da variável para supabaseClient
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // Emails dos administradores (Substitua pelos emails reais de vocês no banco)
-        const ADMIN_EMAILS = ['cantanhededanilo39@gmail.com', 'lyss@admin.com'];
+        const ADMIN_EMAILS = ['dantsuychi@admin.com', 'lyss@admin.com'];
 
         async function checkSession() {
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 document.getElementById('loginSection').classList.add('hidden');
                 document.getElementById('mainSection').classList.remove('hidden');
@@ -181,18 +183,18 @@
         async function login() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
             if (error) alert("Falha na conexão: " + error.message);
             else checkSession();
         }
 
         async function logout() {
-            await supabase.auth.signOut();
+            await supabaseClient.auth.signOut();
             checkSession();
         }
 
         async function salvarListagem() {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await supabaseClient.auth.getUser();
             const payload = {
                 user_id: user.id,
                 nome: document.getElementById('nome').value,
@@ -203,7 +205,7 @@
                 valor_ajuda: document.getElementById('valor').value
             };
 
-            const { error } = await supabase.from('listagens').upsert([payload]);
+            const { error } = await supabaseClient.from('listagens').upsert([payload]);
             if (error) alert("Erro ao salvar: " + error.message);
             else {
                 alert("Dados transmitidos com sucesso.");
@@ -212,10 +214,10 @@
         }
 
         async function carregarMinhasListagens() {
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data, error } = await supabase.from('listagens').select('*').eq('user_id', user.id);
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            const { data, error } = await supabaseClient.from('listagens').select('*').eq('user_id', user.id);
             if (!error && data.length > 0) {
-                const l = data[0]; // Assumindo uma listagem por pessoa para facilitar edição
+                const l = data[0]; 
                 document.getElementById('nome').value = l.nome || '';
                 document.getElementById('sobrenome').value = l.sobrenome || '';
                 document.getElementById('item').value = l.item || '';
@@ -227,7 +229,7 @@
         }
 
         async function carregarTudoAdmin() {
-            const { data, error } = await supabase.from('listagens').select('*');
+            const { data, error } = await supabaseClient.from('listagens').select('*');
             if (!error) {
                 const tbody = document.getElementById('tabelaAdmin');
                 tbody.innerHTML = '';
