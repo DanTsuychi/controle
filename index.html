@@ -76,6 +76,7 @@
             cursor: pointer;
             text-transform: uppercase;
             transition: all 0.3s ease;
+            margin-bottom: 10px;
         }
         button:hover {
             background: var(--neon-red);
@@ -109,12 +110,13 @@
 
     <img src="logo.png" alt="Projeto D" class="logo glitch">
 
-    <!-- Tela de Login -->
+    <!-- Tela de Login / Cadastro -->
     <div id="loginSection" class="container">
         <h2>Acesso Restrito</h2>
-        <input type="email" id="email" placeholder="E-mail / Login">
+        <input type="email" id="email" placeholder="E-mail">
         <input type="password" id="password" placeholder="Senha">
         <button onclick="login()">Conectar-se ao Sistema</button>
+        <button onclick="cadastrar()" style="border-color:#555; color:#aaa;">Cadastrar Nova Conta</button>
     </div>
 
     <!-- Painel Principal do Usuário -->
@@ -152,14 +154,13 @@
     </div>
 
     <script>
-        // COLOQUE SUAS CREDENCIAIS DO SUPABASE AQUI
-        const SUPABASE_URL = 'https://wwuwrzzkiyjhgevgtdqv.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_C4QG_5X6G4wBzkvx8HGFTw_suWEnDYV';
+        // CRENDENCIAIS DO SEU NOVO PROJETO SUPABASE
+        const SUPABASE_URL = 'https://pugtfjrukcgytwiitcoh.supabase.co';
+        const SUPABASE_KEY = '1bea6f54-6428-4289-86af-f3f2bd1020ce';
 
-        // RESOLUÇÃO DO ERRO: Mudamos o nome da variável para supabaseClient
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Emails dos administradores (Substitua pelos emails reais de vocês no banco)
+        // Emails dos administradores
         const ADMIN_EMAILS = ['dantsuychi@admin.com', 'lyss@admin.com'];
 
         async function checkSession() {
@@ -186,6 +187,17 @@
             const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
             if (error) alert("Falha na conexão: " + error.message);
             else checkSession();
+        }
+
+        async function cadastrar() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { error } = await supabaseClient.auth.signUp({ email, password });
+            if (error) alert("Erro ao cadastrar: " + error.message);
+            else {
+                alert("Conta criada com sucesso! Conectando...");
+                checkSession();
+            }
         }
 
         async function logout() {
@@ -216,7 +228,7 @@
         async function carregarMinhasListagens() {
             const { data: { user } } = await supabaseClient.auth.getUser();
             const { data, error } = await supabaseClient.from('listagens').select('*').eq('user_id', user.id);
-            if (!error && data.length > 0) {
+            if (!error && data && data.length > 0) {
                 const l = data[0]; 
                 document.getElementById('nome').value = l.nome || '';
                 document.getElementById('sobrenome').value = l.sobrenome || '';
@@ -230,7 +242,7 @@
 
         async function carregarTudoAdmin() {
             const { data, error } = await supabaseClient.from('listagens').select('*');
-            if (!error) {
+            if (!error && data) {
                 const tbody = document.getElementById('tabelaAdmin');
                 tbody.innerHTML = '';
                 data.forEach(row => {
