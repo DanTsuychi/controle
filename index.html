@@ -176,7 +176,7 @@
             <h3>Todos os Itens da Festa</h3>
             <table>
                 <thead>
-                    <tr>
+                    <tr id="headerGeral">
                         <th>Convidado</th>
                         <th>Item</th>
                         <th>Qtd</th>
@@ -195,15 +195,19 @@
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let editingId = null; // Guarda o ID do item que está sendo editado
+        const ADMIN_EMAILS = ['dantsuychi@admin.com', 'lyss@admin.com'];
+        let currentUserEmail = '';
+        let editingId = null;
 
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
+                currentUserEmail = session.user.email || '';
                 document.getElementById('loginSection').classList.add('hidden');
                 document.getElementById('mainSection').classList.remove('hidden');
                 carregarDadosUsuario();
             } else {
+                currentUserEmail = '';
                 document.getElementById('loginSection').classList.remove('hidden');
                 document.getElementById('mainSection').classList.add('hidden');
             }
@@ -233,7 +237,6 @@
             checkSession();
         }
 
-        // Preenche Nome e Sobrenome automaticamente se já cadastrou algo antes
         async function carregarDadosUsuario() {
             const { data: { user } } = await supabaseClient.auth.getUser();
             const { data } = await supabaseClient.from('listagens').select('*').eq('user_id', user.id).limit(1);
@@ -262,11 +265,9 @@
             let error = null;
 
             if (editingId) {
-                // Atualiza o item existente
                 const res = await supabaseClient.from('listagens').update(payload).eq('id', editingId);
                 error = res.error;
             } else {
-                // Insere um novo item
                 const res = await supabaseClient.from('listagens').insert([payload]);
                 error = res.error;
             }
@@ -277,7 +278,6 @@
                 alert(editingId ? "Item atualizado com sucesso!" : "Item registrado com sucesso!");
                 limparFormularioItem();
                 
-                // Atualiza as tabelas se estiverem abertas
                 if (!document.getElementById('minhasListagensSection').classList.contains('hidden')) {
                     carregarMinhasListagens();
                 }
@@ -364,7 +364,9 @@
                 if (error) {
                     alert("Erro ao apagar: " + error.message);
                 } else {
-                    carregarMinhasListagens();
+                    if (!document.getElementById('minhasListagensSection').classList.contains('hidden')) {
+                        carregarMinhasListagens();
+                    }
                     if (!document.getElementById('listaGeralSection').classList.contains('hidden')) {
                         carregarListaGeral();
                     }
@@ -383,13 +385,25 @@
         }
 
         async function carregarListaGeral() {
+            const isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
+            const header = document.getElementById('headerGeral');
+            
+            header.innerHTML = `
+                <th>Convidado</th>
+                <th>Item</th>
+                <th>Qtd</th>
+                <th>Serviços</th>
+                <th>Ajuda (R$)</th>
+                ${isAdmin ? '<th>Ações</th>' : ''}
+            `;
+
             const { data, error } = await supabaseClient.from('listagens').select('*');
             const tbody = document.getElementById('tabelaGeral');
             tbody.innerHTML = '';
 
             if (!error && data) {
                 if (data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhum item registrado ainda.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="${isAdmin ? 6 : 5}" style="text-align:center;">Nenhum item registrado ainda.</td></tr>`;
                     return;
                 }
                 data.forEach(row => {
@@ -400,6 +414,7 @@
                             <td>${row.quantidade || 0}</td>
                             <td>${row.servicos || '-'}</td>
                             <td>${row.valor_ajuda || '-'}</td>
+                            ${isAdmin ? `<td><button class="btn-sm btn-danger" onclick="apagarItem('\${row.id}')">Apagar</button></td>` : ''}
                         </tr>
                     `;
                 });
