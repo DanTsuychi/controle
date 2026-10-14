@@ -153,12 +153,12 @@
 
     <script>
         // COLOQUE SUAS CREDENCIAIS DO SUPABASE AQUI
-        const SUPABASE_URL = 'SUA_URL_DO_SUPABASE';
-        const SUPABASE_KEY = 'SUA_ANON_KEY_DO_SUPABASE';
+        const SUPABASE_URL = 'https://wwuwrzzkiyjhgevgtdqv.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_C4QG_5X6G4wBzkvx8HGFTw_suWEnDYV';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // Emails dos administradores (Substitua pelos emails reais de vocês no banco)
-        const ADMIN_EMAILS = ['dantsuychi@email.com', 'lyss@email.com'];
+        const ADMIN_EMAILS = ['cantanhededanilo39@gmail.com', 'lyss@admin.com'];
 
         async function checkSession() {
             const { data: { session } } = await supabase.auth.getSession();
